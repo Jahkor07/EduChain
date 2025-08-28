@@ -2,7 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User.js");
-const { sendEmail } = require("../config/email.js");
+const emailService = require("../services/emailService");
+// const { sendEmail } = require("../config/email.js");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
@@ -20,7 +21,7 @@ router.post("/signup", async (req, res) => {
 
   try {
     console.log("Checking for existing user...");
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (existingUser) {
       console.log("User already exists:", email);
       return res.status(400).json({ error: "Email already registered" });
@@ -71,9 +72,30 @@ router.post("/google-signup", async (req, res) => {
   try {
     console.log("Checking for existing user...");
     const existingUser = await User.findOne({ email });
+    
     if (existingUser) {
-      console.log("User already exists:", email);
-      return res.status(400).json({ error: "Email already registered" });
+      console.log("User already exists, logging them in:", email);
+      
+      // Generate JWT token for existing user
+      const token = jwt.sign({ userId: existingUser._id, role: existingUser.role }, JWT_SECRET, { expiresIn: "7d" });
+      console.log("JWT token generated for existing user");
+      
+      const responseData = { 
+        token, 
+        user: {
+          id: existingUser._id,
+          email: existingUser.email,
+          role: existingUser.role,
+          firstName: existingUser.firstName,
+          lastName: existingUser.lastName
+        },
+        isExistingUser: true // Flag to indicate this is an existing user
+      };
+
+      console.log("Sending response for existing user:", responseData);
+      console.log("Response status: 200");
+
+      return res.status(200).json(responseData);
     }
 
     // Extract firstName and lastName from name
@@ -111,10 +133,11 @@ router.post("/google-signup", async (req, res) => {
         role: newUser.role,
         firstName: newUser.firstName,
         lastName: newUser.lastName
-      }
+      },
+      isExistingUser: false // Flag to indicate this is a new user
     };
 
-    console.log("Sending response:", responseData);
+    console.log("Sending response for new user:", responseData);
     console.log("Response status: 201");
 
     res.status(201).json(responseData);
@@ -126,18 +149,37 @@ router.post("/google-signup", async (req, res) => {
 
 // Login
 router.post("/login", async (req, res) => {
+  console.log("Login attempt received:", req.body);
   const { email, password } = req.body;
 
-  if (!email || !password) return res.status(400).json({ error: "Missing email or password" });
+  if (!email || !password) {
+    console.log("Missing email or password");
+    return res.status(400).json({ error: "Missing email or password" });
+  }
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    console.log("Looking for user with email:", email);
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+    
+    if (!user) {
+      console.log("User not found:", email);
+      return res.status(401).json({ error: "User not found with this email address" });
+    }
+    
+    console.log("User found:", { id: user._id, email: user.email, role: user.role });
+    console.log("Comparing password...");
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
+    console.log("Password match result:", isMatch);
+    
+    if (!isMatch) {
+      console.log("Password does not match for user:", email);
+      return res.status(401).json({ error: "Incorrect password" });
+    }
 
+    console.log("Password verified successfully for:", email);
     const token = jwt.sign({ userId: user._id, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+    console.log("JWT token generated for user:", email);
 
     res.json({ 
       token,
@@ -148,7 +190,7 @@ router.post("/login", async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -162,7 +204,7 @@ router.put("/profile", async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -206,7 +248,7 @@ router.post("/forgot-password", async (req, res) => {
 
   try {
     console.log("Checking if user exists...");
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (!user) {
       console.log("User not found:", email);
       return res.status(404).json({ error: "User not found" });
@@ -226,21 +268,22 @@ router.post("/forgot-password", async (req, res) => {
 
     // Send email with reset code
     console.log("Sending password reset email...");
-    const emailResult = await sendEmail(email, 'passwordReset', {
-      resetCode: resetCode,
-      userName: user.firstName || user.email.split('@')[0]
-    });
+    const emailResult = await emailService.sendPasswordResetEmail(
+      email, 
+      resetCode, 
+      user.firstName || user.email.split('@')[0]
+    );
 
     if (emailResult.success) {
       console.log("Password reset email sent successfully to:", email);
       res.json({ 
-        message: "If an account with this email exists, a password reset link has been sent to your email."
+        message: "Password reset code has been sent to your email address. Please check your inbox and enter the 6-digit code to reset your password."
       });
     } else {
       console.error("Failed to send email:", emailResult.error);
       // Still save the token but inform user about email issue
       res.json({ 
-        message: "Password reset token generated but email delivery failed. Please contact support.",
+        message: "Password reset code generated but email delivery failed. Please contact support or try again later.",
         resetToken: resetCode // Fallback: still show token for now
       });
     }
