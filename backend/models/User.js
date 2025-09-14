@@ -11,8 +11,11 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, required: false },
   phoneNumber: { type: String, required: false },
   address: { type: String, required: false },
-  resetCode: { type: String, required: false },
-  resetCodeExpiry: { type: Date, required: false },
+  otp: { type: String, required: false },
+  otpExpiry: { type: Date, required: false },
+  phoneOTP: { type: String, required: false },
+  phoneOTPExpiry: { type: Date, required: false },
+  phoneVerified: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);

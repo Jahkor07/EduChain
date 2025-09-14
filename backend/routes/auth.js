@@ -197,7 +197,7 @@ router.post("/login", async (req, res) => {
 
 // Update user profile
 router.put("/profile", async (req, res) => {
-  const { email, firstName, lastName, gender, dateOfBirth, phoneNumber, address } = req.body;
+  const { email, firstName, lastName, gender, dateOfBirth, phoneNumber, address, profileImage } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
@@ -209,13 +209,21 @@ router.put("/profile", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Check if phone number is being changed and if it's verified
+    if (phoneNumber !== undefined && phoneNumber !== user.phoneNumber) {
+      if (!user.phoneVerified) {
+        return res.status(400).json({ error: "Phone number must be verified before updating" });
+      }
+    }
+
     // Update user profile fields
-    user.firstName = firstName || user.firstName;
-    user.lastName = lastName || user.lastName;
-    user.gender = gender || user.gender;
-    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
-    user.phoneNumber = phoneNumber || user.phoneNumber;
-    user.address = address || user.address;
+    user.firstName = firstName !== undefined ? firstName : user.firstName;
+    user.lastName = lastName !== undefined ? lastName : user.lastName;
+    user.gender = gender !== undefined ? gender : user.gender;
+    user.dateOfBirth = dateOfBirth !== undefined ? dateOfBirth : user.dateOfBirth;
+    user.phoneNumber = phoneNumber !== undefined ? phoneNumber : user.phoneNumber;
+    user.address = address !== undefined ? address : user.address;
+    user.profilePhoto = profileImage !== undefined ? profileImage : user.profilePhoto;
 
     await user.save();
     console.log("Profile updated successfully for:", email);
@@ -227,7 +235,10 @@ router.put("/profile", async (req, res) => {
         email: user.email,
         role: user.role,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        profilePhoto: user.profilePhoto,
+        phoneVerified: user.phoneVerified
       }
     });
   } catch (err) {
@@ -338,6 +349,127 @@ router.post("/reset-password", async (req, res) => {
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Send Phone OTP for verification (Email-based for restricted countries)
+router.post("/send-phone-otp", async (req, res) => {
+  console.log("Send phone OTP request received:", req.body);
+  
+  const { email, phoneNumber } = req.body;
+
+  if (!email || !phoneNumber) {
+    return res.status(400).json({ error: "Email and phone number are required" });
+  }
+
+  try {
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set OTP expiry (2 minutes from now for phone verification)
+    const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
+    
+    // Save OTP to user document
+    user.phoneOTP = otp;
+    user.phoneOTPExpiry = otpExpiry;
+    await user.save();
+
+    // Send OTP via email (since SMS is restricted in Zambia)
+    const phoneVerificationService = require('../services/phoneVerificationService');
+    const emailResult = await phoneVerificationService.sendOTP(phoneNumber, email, otp);
+    
+    console.log("Phone OTP sent successfully for:", email);
+    console.log("Email Result:", emailResult);
+
+    res.json({ 
+      message: "Phone verification OTP sent to your email",
+      mode: emailResult.mode,
+      phoneNumber: phoneNumber,
+      email: email,
+      note: "SMS verification is not available in your region. Please check your email for the verification code."
+    });
+
+  } catch (err) {
+    console.error("Send phone OTP error:", err);
+    res.status(500).json({ error: "Failed to send OTP" });
+  }
+});
+
+// Verify Phone OTP
+router.post("/verify-phone-otp", async (req, res) => {
+  console.log("Verify phone OTP request received:", req.body);
+  
+  const { email, phoneNumber, otp } = req.body;
+
+  if (!email || !phoneNumber || !otp) {
+    return res.status(400).json({ error: "Email, phone number, and OTP are required" });
+  }
+
+  try {
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') },
+      phoneOTP: otp,
+      phoneOTPExpiry: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    // Clear OTP and mark phone as verified
+    user.phoneOTP = undefined;
+    user.phoneOTPExpiry = undefined;
+    user.phoneVerified = true;
+    user.phoneNumber = phoneNumber; // Update phone number
+    await user.save();
+
+    console.log("Phone OTP verified successfully for:", email);
+
+    res.json({ 
+      message: "Phone number verified successfully",
+      phoneVerified: true
+    });
+
+  } catch (err) {
+    console.error("Verify phone OTP error:", err);
+    res.status(500).json({ error: "Failed to verify OTP" });
+  }
+});
+
+// Verify Token
+router.get("/verify", async (req, res) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    res.json({
+      valid: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
+    });
+  } catch (err) {
+    console.error("Token verification error:", err);
+    res.status(401).json({ error: "Invalid token" });
   }
 });
 

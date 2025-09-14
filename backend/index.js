@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
@@ -32,6 +33,25 @@ app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/certificates', certificateRoutes);
 // app.use('/api/nft', nftRoutes);
+
+// Google Books API route
+app.get("/api/books", async (req, res) => {
+  const { query } = req.query; // frontend sends ?query=course_name
+  console.log("Books API called with query:", query);
+  console.log("Google Books API Key:", process.env.REACT_APP_GOOGLE_BOOKS_KEY ? "Present" : "Missing");
+  
+  try {
+    const response = await axios.get(
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&key=${process.env.REACT_APP_GOOGLE_BOOKS_KEY}&maxResults=10`
+    );
+    console.log("Google Books API response:", response.data.items?.length || 0, "books found");
+    res.json(response.data.items || []);
+  } catch (error) {
+    console.error("Google Books API error:", error.message);
+    console.error("Full error:", error.response?.data || error);
+    res.status(500).json({ error: "Failed to fetch books" });
+  }
+});
 
 // Initialize blockchain service at startup
 const blockchainService = require('./services/blockchainService');
