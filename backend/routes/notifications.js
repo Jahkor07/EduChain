@@ -36,8 +36,3 @@ router.delete('/:userId', deleteAllNotifications);
 router.get('/:userId/stats', getNotificationStats);
 
 module.exports = router;
-
-
-
-
-

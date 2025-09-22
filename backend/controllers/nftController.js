@@ -1,291 +1,340 @@
-const { ethers } = require('ethers');
-const NFT = require('../models/NFT');
-const { getContract, getProvider, CONTRACT_CONFIG } = require('../config/contract');
-const pinataService = require('../services/pinataService');
+const nftService = require('../services/nftService');
+const multer = require('multer');
+const path = require('path');
 
-class NFTController {
-  // Mint NFT with file upload, IPFS storage, and smart contract interaction
-  async mintNFT(req, res) {
-    try {
-      console.log('Starting NFT minting process...');
-      
-      // Validate request
-      if (!req.file) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No file uploaded' 
-        });
-      }
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow images and documents
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|svg/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
 
-      const { 
-        name, 
-        description, 
-        recipient, 
-        courseId, 
-        studentId, 
-        certificateType = 'course_completion',
-        attributes = []
-      } = req.body;
-
-      if (!name || !description || !recipient) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Missing required fields: name, description, recipient' 
-        });
-      }
-
-      // Validate recipient address
-      if (!ethers.isAddress(recipient)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid recipient address' 
-        });
-      }
-
-      console.log('Uploading file to IPFS...');
-      
-      // Upload file to IPFS via Pinata
-      const fileUploadResult = await pinataService.uploadFile(
-        req.file.buffer, 
-        req.file.originalname
-      );
-
-      console.log('Creating NFT metadata...');
-      
-      // Parse attributes if it's a string
-      let parsedAttributes = [];
-      if (typeof attributes === 'string') {
-        try {
-          parsedAttributes = JSON.parse(attributes);
-        } catch (e) {
-          parsedAttributes = [];
-        }
-      } else if (Array.isArray(attributes)) {
-        parsedAttributes = attributes;
-      }
-
-      // Create NFT metadata
-      const metadata = pinataService.createNFTMetadata(
-        name,
-        description,
-        fileUploadResult.ipfsUrl,
-        parsedAttributes
-      );
-
-      console.log('Uploading metadata to IPFS...');
-      
-      // Upload metadata to IPFS
-      const metadataUploadResult = await pinataService.uploadMetadata(metadata);
-
-      console.log('Preparing smart contract transaction...');
-      
-      // Get next token ID (for demo purposes, we'll use a simple counter)
-      const newTokenId = Date.now(); // Simple token ID generation for demo
-
-      console.log(`Preparing NFT with token ID: ${newTokenId}`);
-      
-      // Return transaction data for frontend to sign
-      const response = {
-        success: true,
-        message: 'NFT metadata prepared successfully',
-        data: {
-          tokenId: newTokenId,
-          tokenURI: metadataUploadResult.ipfsUrl,
-          imageUrl: fileUploadResult.ipfsUrl,
-          metadata: metadata,
-          transaction: {
-            to: CONTRACT_CONFIG.CONTRACT_ADDRESS,
-            data: '0x', // Simplified for demo
-            gasLimit: '500000',
-            gasPrice: '20000000000',
-            value: '0x0'
-          },
-          recipient: recipient,
-          courseId: courseId || null,
-          studentId: studentId || null,
-          certificateType: certificateType
-        }
-      };
-
-      res.json(response);
-
-    } catch (error) {
-      console.error('NFT minting error:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to mint NFT',
-        error: error.message 
-      });
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, SVG) and PDF files are allowed'));
     }
   }
+});
 
-  // Complete NFT minting after transaction is signed
-  async completeMinting(req, res) {
-    try {
-      const { 
-        tokenId, 
-        transactionHash, 
-        blockNumber, 
-        recipient, 
-        courseId, 
-        studentId, 
-        certificateType,
-        metadata 
-      } = req.body;
+/**
+ * Initialize NFT service
+ */
+const initializeNFTService = async (req, res, next) => {
+  try {
+    const initialized = await nftService.initialize();
+    if (!initialized) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to initialize NFT service'
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('NFT service initialization error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to initialize NFT service'
+    });
+  }
+};
 
-      if (!tokenId || !transactionHash || !recipient) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Missing required fields' 
-        });
+/**
+ * Test all NFT services
+ */
+const testServices = async (req, res) => {
+  try {
+    console.log('🧪 Testing NFT services...');
+    
+    const results = await nftService.testServices();
+    
+    res.json({
+      success: true,
+      message: 'Service test completed',
+      results: results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Service test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to test services',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Mint NFT for educator
+ */
+const mintNFT = async (req, res) => {
+  try {
+    const {
+      recipient,
+      name,
+      description,
+      attributes = [],
+      externalUrl = "https://educhain.com",
+      animationUrl = "",
+      backgroundColor = "",
+      youtubeUrl = "",
+      royaltyReceiver,
+      royaltyBPS = 500 // Default 5%
+    } = req.body;
+
+    // Validate required fields
+    if (!recipient || !name || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipient, name, and description are required'
+      });
+    }
+
+    // Validate Ethereum address
+    if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Ethereum address format'
+      });
+    }
+
+    // Validate royalty percentage (max 10%)
+    if (royaltyBPS > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Royalty cannot exceed 10% (1000 basis points)'
+      });
+    }
+
+    console.log('🎨 Minting NFT for educator...');
+    console.log('👤 Recipient:', recipient);
+    console.log('📝 Name:', name);
+
+    // Prepare NFT data
+    const nftData = {
+      name,
+      description,
+      image: req.file ? `ipfs://${req.file.ipfsHash}` : 'https://via.placeholder.com/400x400/6366f1/ffffff?text=EduChain+NFT',
+      attributes,
+      externalUrl,
+      animationUrl,
+      backgroundColor,
+      youtubeUrl
+    };
+
+    // Prepare royalty settings
+    const royaltySettings = {
+      royaltyReceiver: royaltyReceiver || recipient,
+      royaltyBPS: parseInt(royaltyBPS)
+    };
+
+    // Mint the NFT
+    const result = await nftService.mintNFT(recipient, nftData, royaltySettings);
+
+    console.log('✅ NFT minted successfully:', result.tokenId);
+
+    res.status(201).json({
+      success: true,
+      message: 'NFT minted successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('NFT minting error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mint NFT',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Upload image for NFT
+ */
+const uploadImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    console.log('📤 Uploading image to IPFS...');
+    console.log('📁 File:', req.file.originalname);
+    console.log('📏 Size:', req.file.size, 'bytes');
+
+    // Upload file to IPFS
+    const result = await nftService.ipfsService.uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    // Store IPFS hash in request for use in minting
+    req.file.ipfsHash = result.ipfsHash;
+
+    res.json({
+      success: true,
+      message: 'Image uploaded to IPFS successfully',
+      data: {
+        ipfsHash: result.ipfsHash,
+        ipfsUrl: result.ipfsUrl,
+        fileName: req.file.originalname,
+        fileSize: req.file.size
       }
+    });
 
-      console.log(`Completing NFT minting for token ID: ${tokenId}`);
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload image',
+      error: error.message
+    });
+  }
+};
 
-      // Create NFT record in MongoDB (using in-memory for demo)
-      const nftRecord = {
-        tokenId: tokenId,
-        name: metadata.name,
-        description: metadata.description,
-        image: metadata.image,
-        metadata: JSON.stringify(metadata),
-        transactionHash: transactionHash,
-        blockNumber: blockNumber || 0,
-        creator: recipient,
-        owner: recipient,
-        courseId: courseId,
-        studentId: studentId,
-        certificateType: certificateType,
-        attributes: metadata.attributes || [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+/**
+ * Get NFT metadata
+ */
+const getNFTMetadata = async (req, res) => {
+  try {
+    const { ipfsHash } = req.params;
 
-      // Store in memory for demo (replace with actual MongoDB save)
-      if (!global.nftDatabase) {
-        global.nftDatabase = [];
-      }
-      global.nftDatabase.push(nftRecord);
-
-      console.log(`NFT ${tokenId} saved to database`);
-
-      res.json({
-        success: true,
-        message: 'NFT minting completed successfully',
-        data: {
-          tokenId: tokenId,
-          transactionHash: transactionHash,
-          nft: nftRecord
-        }
-      });
-
-    } catch (error) {
-      console.error('Error completing NFT minting:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to complete NFT minting',
-        error: error.message 
+    if (!ipfsHash) {
+      return res.status(400).json({
+        success: false,
+        message: 'IPFS hash is required'
       });
     }
+
+    const metadata = await nftService.getNFTMetadata(ipfsHash);
+
+    res.json({
+      success: true,
+      data: metadata
+    });
+
+  } catch (error) {
+    console.error('Get metadata error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get NFT metadata',
+      error: error.message
+    });
   }
+};
 
-  // Get NFT by token ID
-  async getNFT(req, res) {
-    try {
-      const { tokenId } = req.params;
-      
-      // Use in-memory database for demo
-      const nftDatabase = global.nftDatabase || [];
-      const nft = nftDatabase.find(n => n.tokenId.toString() === tokenId.toString());
-      
-      if (!nft) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'NFT not found' 
-        });
-      }
+/**
+ * Get user's NFTs
+ */
+const getUserNFTs = async (req, res) => {
+  try {
+    const { userAddress } = req.params;
 
-      res.json({
-        success: true,
-        data: nft
-      });
-
-    } catch (error) {
-      console.error('Error fetching NFT:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to fetch NFT',
-        error: error.message 
+    if (!userAddress || !/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid Ethereum address is required'
       });
     }
+
+    const nfts = await nftService.getUserNFTs(userAddress);
+
+    res.json({
+      success: true,
+      data: nfts,
+      count: nfts.length
+    });
+
+  } catch (error) {
+    console.error('Get user NFTs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user NFTs',
+      error: error.message
+    });
   }
+};
 
-  // Get all NFTs for a user
-  async getUserNFTs(req, res) {
-    try {
-      const { address } = req.params;
-      
-      // Use in-memory database for demo
-      const nftDatabase = global.nftDatabase || [];
-      const nfts = nftDatabase.filter(n => 
-        n.owner.toLowerCase() === address.toLowerCase()
-      );
-      
-      res.json({
-        success: true,
-        data: nfts
-      });
+/**
+ * Set default royalty
+ */
+const setDefaultRoyalty = async (req, res) => {
+  try {
+    const { receiver, feeNumerator } = req.body;
 
-    } catch (error) {
-      console.error('Error fetching user NFTs:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to fetch user NFTs',
-        error: error.message 
+    if (!receiver || !/^0x[a-fA-F0-9]{40}$/.test(receiver)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid receiver address is required'
       });
     }
-  }
 
-  // Get all NFTs
-  async getAllNFTs(req, res) {
-    try {
-      const nftDatabase = global.nftDatabase || [];
-      
-      res.json({
-        success: true,
-        data: nftDatabase.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      });
-
-    } catch (error) {
-      console.error('Error fetching all NFTs:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to fetch NFTs',
-        error: error.message 
+    if (feeNumerator > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Royalty cannot exceed 10% (1000 basis points)'
       });
     }
+
+    const result = await nftService.setDefaultRoyalty(receiver, feeNumerator);
+
+    res.json({
+      success: true,
+      message: 'Default royalty set successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Set default royalty error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to set default royalty',
+      error: error.message
+    });
   }
+};
 
-  // Test Pinata connection
-  async testPinataConnection(req, res) {
-    try {
-      const isConnected = await pinataService.testConnection();
-      
-      res.json({
-        success: true,
-        connected: isConnected,
-        message: isConnected ? 'Pinata connection successful' : 'Pinata connection failed'
-      });
+/**
+ * Withdraw contract funds
+ */
+const withdraw = async (req, res) => {
+  try {
+    const result = await nftService.withdraw();
 
-    } catch (error) {
-      console.error('Pinata connection test error:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to test Pinata connection',
-        error: error.message 
-      });
-    }
+    res.json({
+      success: true,
+      message: 'Funds withdrawn successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Withdraw error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to withdraw funds',
+      error: error.message
+    });
   }
-}
+};
 
-module.exports = new NFTController();
+module.exports = {
+  initializeNFTService,
+  testServices,
+  mintNFT,
+  uploadImage,
+  getNFTMetadata,
+  getUserNFTs,
+  setDefaultRoyalty,
+  withdraw,
+  upload // Export multer upload middleware
+};

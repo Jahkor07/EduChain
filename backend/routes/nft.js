@@ -1,59 +1,31 @@
 const express = require('express');
-const multer = require('multer');
-const nftController = require('../controllers/nftController');
-
 const router = express.Router();
+const nftController = require('../controllers/nftController');
+const { auth } = require('../middleware/auth');
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Allow only image files
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'), false);
-    }
-  }
-});
+// Apply authentication middleware to all routes
+router.use(auth);
 
-// POST /api/nft/mint - Mint new NFT
-router.post('/mint', upload.single('file'), nftController.mintNFT);
+// Initialize NFT service for all routes
+router.use(nftController.initializeNFTService);
 
-// POST /api/nft/complete - Complete NFT minting after transaction
-router.post('/complete', nftController.completeMinting);
+// Test all services
+router.get('/test', nftController.testServices);
 
-// GET /api/nft/:tokenId - Get NFT by token ID
-router.get('/:tokenId', nftController.getNFT);
+// Upload image for NFT
+router.post('/upload-image', nftController.upload.single('image'), nftController.uploadImage);
 
-// GET /api/nft/user/:address - Get all NFTs for a user
-router.get('/user/:address', nftController.getUserNFTs);
+// Mint NFT
+router.post('/mint', nftController.upload.single('image'), nftController.mintNFT);
 
-// GET /api/nft - Get all NFTs
-router.get('/', nftController.getAllNFTs);
+// Get NFT metadata
+router.get('/metadata/:ipfsHash', nftController.getNFTMetadata);
 
-// GET /api/nft/test/pinata - Test Pinata connection
-router.get('/test/pinata', nftController.testPinataConnection);
+// Get user's NFTs
+router.get('/user/:userAddress', nftController.getUserNFTs);
+
+// Admin routes (require educator role)
+router.post('/set-royalty', nftController.setDefaultRoyalty);
+router.post('/withdraw', nftController.withdraw);
 
 module.exports = router;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
