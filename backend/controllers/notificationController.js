@@ -16,7 +16,7 @@ const getNotifications = async (req, res) => {
       });
     }
 
-    // Check if user exists
+    // Check if user exists and get their role
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ 
@@ -25,11 +25,21 @@ const getNotifications = async (req, res) => {
       });
     }
 
-    // Build query
-    const query = { userId };
+    // Build query - filter by userId AND role
+    // Only show notifications for user's specific role or 'all' roles
+    const query = { 
+      userId,
+      $or: [
+        { targetRole: user.role },
+        { targetRole: 'all' }
+      ]
+    };
+    
     if (unreadOnly === 'true') {
       query.read = false;
     }
+
+    console.log(`📬 Fetching notifications for user ${userId} with role: ${user.role}`);
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -45,8 +55,15 @@ const getNotifications = async (req, res) => {
     const totalCount = await Notification.countDocuments(query);
     const totalPages = Math.ceil(totalCount / parseInt(limit));
 
-    // Get unread count
-    const unreadCount = await Notification.countDocuments({ userId, read: false });
+    // Get unread count - also filter by role
+    const unreadCount = await Notification.countDocuments({ 
+      userId, 
+      read: false,
+      $or: [
+        { targetRole: user.role },
+        { targetRole: 'all' }
+      ]
+    });
 
     res.status(200).json({
       success: true,
@@ -77,7 +94,7 @@ const getNotifications = async (req, res) => {
 const createNotification = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { message, type = 'info', actionUrl = null, metadata = {} } = req.body;
+    const { message, type = 'info', actionUrl = null, metadata = {}, targetRole = 'all' } = req.body;
 
     // Validate required fields
     if (!message || message.trim().length === 0) {
@@ -112,14 +129,26 @@ const createNotification = async (req, res) => {
       });
     }
 
-    // Create notification
+    // Validate targetRole
+    const validRoles = ['student', 'educator', 'admin', 'all'];
+    if (!validRoles.includes(targetRole)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid target role. Must be one of: student, educator, admin, all' 
+      });
+    }
+
+    // Create notification with targetRole
     const notification = new Notification({
       userId,
       message: message.trim(),
       type,
       actionUrl,
-      metadata
+      metadata,
+      targetRole
     });
+
+    console.log(`📬 Creating notification for user ${userId} with targetRole: ${targetRole}`);
 
     await notification.save();
     await notification.populate('userId', 'firstName lastName email');
@@ -366,14 +395,29 @@ const getNotificationStats = async (req, res) => {
       });
     }
 
-    // Get statistics
-    const totalCount = await Notification.countDocuments({ userId });
-    const unreadCount = await Notification.countDocuments({ userId, read: false });
+    // Get statistics - filter by role
+    const roleFilter = {
+      $or: [
+        { targetRole: user.role },
+        { targetRole: 'all' }
+      ]
+    };
+
+    const totalCount = await Notification.countDocuments({ userId, ...roleFilter });
+    const unreadCount = await Notification.countDocuments({ userId, read: false, ...roleFilter });
     const readCount = totalCount - unreadCount;
 
-    // Get notifications by type
+    // Get notifications by type - also filter by role
     const typeStats = await Notification.aggregate([
-      { $match: { userId: mongoose.Types.ObjectId(userId) } },
+      { 
+        $match: { 
+          userId: mongoose.Types.ObjectId(userId),
+          $or: [
+            { targetRole: user.role },
+            { targetRole: 'all' }
+          ]
+        } 
+      },
       { $group: { _id: '$type', count: { $sum: 1 } } }
     ]);
 

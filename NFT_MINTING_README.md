@@ -73,7 +73,7 @@ function withdraw()
 ### Example Mint Request
 ```json
 {
-  "recipient": "0x742d35Cc6634C0532925a3b8D0C0C1C0C1C0C1C0",
+  "recipient": "0x0000000000000000000000000000000000000000", // Replace with actual recipient address
   "name": "Advanced JavaScript Certificate",
   "description": "Certificate for completing Advanced JavaScript course",
   "attributes": [
@@ -81,7 +81,7 @@ function withdraw()
     { "trait_type": "Level", "value": "Advanced" },
     { "trait_type": "Issuer", "value": "EduChain" }
   ],
-  "royaltyReceiver": "0x742d35Cc6634C0532925a3b8D0C0C1C0C1C0C1C0",
+  "royaltyReceiver": "0x0000000000000000000000000000000000000000", // Replace with actual royalty receiver address
   "royaltyBPS": 500
 }
 ```

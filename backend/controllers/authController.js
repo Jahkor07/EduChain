@@ -22,7 +22,7 @@ export const loginUser = async (req, res) => {
     };
 
     // Sign token (make sure you have JWT_SECRET in your .env)
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1h' });
 
     // Send token and user info (without password)
     res.json({

@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -20,10 +20,10 @@ router.post('/register', async (req, res) => {
   }
 
   // Validate role
-  if (!['student', 'educator'].includes(role)) {
+  if (!['student', 'educator', 'admin'].includes(role)) {
     return res.status(400).json({ 
       success: false, 
-        message: 'Invalid role. Must be student or educator' 
+        message: 'Invalid role. Must be student, educator, or admin' 
       });
     }
 
@@ -84,7 +84,7 @@ router.post('/register', async (req, res) => {
 // Login endpoint
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -111,6 +111,23 @@ router.post('/login', async (req, res) => {
         message: 'Invalid email or password' 
       });
     }
+
+    // Role validation - check if provided role matches user's role
+    console.log('🔍 Role validation debug:');
+    console.log('   Provided role:', role);
+    console.log('   User role:', user.role);
+    console.log('   Role match:', user.role === role);
+    console.log('   Is admin:', user.role === 'admin');
+    
+    if (role && user.role !== role && user.role !== 'admin') {
+      console.log('❌ Role validation failed - access denied');
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied: no user exists with these credentials for the selected role' 
+      });
+    }
+    
+    console.log('✅ Role validation passed');
 
     // Generate JWT token
     const token = jwt.sign(
@@ -180,8 +197,8 @@ router.get("/verify", async (req, res) => {
 router.get("/users", async (req, res) => {
   const { role } = req.query;
   
-  if (!role || !['student', 'educator'].includes(role)) {
-    return res.status(400).json({ error: "Valid role parameter is required (student or educator)" });
+  if (!role || !['student', 'educator', 'admin'].includes(role)) {
+    return res.status(400).json({ error: "Valid role parameter is required (student, educator, or admin)" });
   }
 
   try {

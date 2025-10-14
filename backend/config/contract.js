@@ -83,7 +83,7 @@ const CONTRACT_ABI = [
 // Contract configuration
 const CONTRACT_CONFIG = {
   // For development - replace with actual deployed contract address
-  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS || "0x1234567890123456789012345678901234567890",
+  CONTRACT_ADDRESS: process.env.NFT_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
   
   // Network configuration
   NETWORK: {

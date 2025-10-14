@@ -1,7 +1,8 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-const auth = async (req, res, next) => {
+// Main authentication middleware
+export const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
@@ -33,4 +34,43 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = { auth };
+// Alias for compatibility
+export const authenticateToken = auth;
+
+// Admin middleware
+export const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Not authenticated' 
+    });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  next();
+};
+
+// Educator middleware
+export const isEducator = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Not authenticated' 
+    });
+  }
+
+  if (req.user.role !== 'educator' && req.user.role !== 'admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied. Educator privileges required.' 
+    });
+  }
+
+  next();
+};

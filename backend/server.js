@@ -3,6 +3,8 @@ import cors from "cors";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/user.js";
+import bookRoutes from "./routes/books.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -21,7 +23,10 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB connection error:", err));
 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/books", bookRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

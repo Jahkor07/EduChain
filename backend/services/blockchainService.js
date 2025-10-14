@@ -6,7 +6,7 @@ class BlockchainService {
     this.provider = null;
     this.signer = null;
     this.contract = null;
-    this.contractAddress = process.env.NFT_CONTRACT_ADDRESS;
+    this.contractAddress = process.env.NFT_CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
     this.privateKey = process.env.PRIVATE_KEY;
   }
 
@@ -16,8 +16,8 @@ class BlockchainService {
    */
   async initialize() {
     try {
-      // Connect to Ethereum network (using testnet for development)
-      const networkUrl = process.env.ETHEREUM_NETWORK_URL || 'https://sepolia.infura.io/v3/your-project-id';
+      // Connect to Ethereum network (using Hardhat localhost for development)
+      const networkUrl = process.env.ETHEREUM_NETWORK_URL || 'http://127.0.0.1:8545';
       
       console.log('🔗 Connecting to Ethereum network:', networkUrl);
       

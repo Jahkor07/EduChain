@@ -1,70 +1,83 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-const NFTSchema = new mongoose.Schema({
+const nftSchema = new mongoose.Schema({
   tokenId: {
-    type: Number,
-    required: true,
-    unique: true
-  },
-  name: {
     type: String,
-    required: true
+    required: true,
+    unique: true,
+  },
+  title: {
+    type: String,
+    required: true,
   },
   description: {
     type: String,
-    required: true
-  },
-  image: {
-    type: String,
-    required: true
-  },
-  metadata: {
-    type: String,
-    required: true
-  },
-  transactionHash: {
-    type: String,
-    required: true
-  },
-  blockNumber: {
-    type: Number,
-    required: true
-  },
-  creator: {
-    type: String,
-    required: true
+    required: true,
   },
   owner: {
-    type: String,
-    required: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
   },
-  courseId: {
-    type: String,
-    required: false
+  creator: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
   },
-  studentId: {
+  ipfsHash: {
     type: String,
-    required: false
   },
-  certificateType: {
+  metadataUri: {
     type: String,
-    enum: ['course_completion', 'achievement', 'participation'],
-    default: 'course_completion'
   },
-  attributes: [{
-    trait_type: String,
-    value: String
-  }],
-  createdAt: {
+  price: {
+    type: Number,
+    default: 0,
+  },
+  forSale: {
+    type: Boolean,
+    default: false,
+  },
+  category: {
+    type: String,
+    enum: ['certificate', 'course', 'achievement', 'other'],
+    default: 'certificate',
+  },
+  plagiarismScore: {
+    type: Number,
+  },
+  verified: {
+    type: Boolean,
+    default: false,
+  },
+  removed: {
+    type: Boolean,
+    default: false,
+  },
+  removedAt: {
     type: Date,
-    default: Date.now
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
+  removalReason: {
+    type: String,
+  },
+  views: {
+    type: Number,
+    default: 0,
+  },
+  likes: {
+    type: Number,
+    default: 0,
+  },
+}, {
+  timestamps: true,
 });
 
-module.exports = mongoose.model('NFT', NFTSchema);
+// Indexes
+nftSchema.index({ tokenId: 1 });
+nftSchema.index({ owner: 1 });
+nftSchema.index({ creator: 1 });
+nftSchema.index({ forSale: 1, removed: 0 });
 
+const NFT = mongoose.model('NFT', nftSchema);
 
+export default NFT;

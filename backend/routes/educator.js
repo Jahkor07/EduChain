@@ -143,18 +143,37 @@ router.post('/add-book', auth, requireEducator, async (req, res) => {
 
     await book.save();
 
-    console.log(`Educator ${req.user.id} added book: "${title}" with price $${educatorPrice}`);
+    console.log(`✅ Educator ${req.user.id} added book: "${title}" with price $${educatorPrice}`);
+    console.log(`📚 Book ID: ${book._id} - Now available in educator's "My Books" section`);
 
+    // Return complete book data for immediate display in My Books
     res.status(201).json({
       success: true,
-      message: 'Book successfully added to marketplace',
+      message: 'Book successfully added to marketplace and My Books',
       data: {
+        _id: book._id,
         id: book._id,
+        googleBooksId: book.googleBooksId,
         title: book.title,
         authors: book.authors,
+        description: book.description,
+        thumbnail: book.thumbnail,
+        publisher: book.publisher,
+        publishedDate: book.publishedDate,
+        pageCount: book.pageCount,
+        language: book.language,
+        categories: book.categories,
+        averageRating: book.averageRating,
+        ratingsCount: book.ratingsCount,
+        previewLink: book.previewLink,
+        infoLink: book.infoLink,
+        educatorId: book.educatorId,
         educatorPrice: book.educatorPrice,
         currency: book.currency,
-        addedAt: book.addedAt
+        isActive: book.isActive,
+        addedAt: book.addedAt,
+        createdAt: book.createdAt,
+        updatedAt: book.updatedAt
       }
     });
 

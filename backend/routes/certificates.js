@@ -5,6 +5,7 @@ const { authenticateToken, requireEducator, requireOwnership } = require('../mid
 const ipfsService = require('../services/ipfsService');
 const blockchainService = require('../services/blockchainService');
 const plagiarismService = require('../services/plagiarismService');
+const winstonService = require('../services/winstonService');
 const multer = require('multer');
 
 const router = express.Router();
@@ -326,18 +327,71 @@ router.post('/mint', authenticateToken, requireEducator, upload.single('certific
         return res.status(400).json({ error: 'Certificate file is required' });
       }
 
-      // Step 2: Check content originality using GPTZero
-      console.log('🔍 Checking certificate content originality...');
-      let plagiarismResult = null;
+      // Step 2: Server-side plagiarism verification using Winston AI
+      console.log('🔍 Server-side plagiarism verification using Winston AI...');
       
       try {
-        // Extract text content from the certificate file for analysis
-        const contentToCheck = course.title + ' ' + course.description + ' ' + grade;
-        plagiarismResult = await plagiarismService.checkContentOriginality(contentToCheck, 'certificate');
-        console.log('✅ Plagiarism check completed:', plagiarismResult.riskLevel);
+        // Create content for plagiarism check (course info + student details)
+        const contentToCheck = `
+          Certificate of Achievement
+          Course: ${course.title}
+          Description: ${course.description}
+          Student: ${studentEmail}
+          Grade: ${grade}
+          This certificate recognizes successful completion of educational requirements.
+          The recipient has demonstrated proficiency in the subject matter.
+          Educational achievement recognition and academic credential validation.
+        `.trim();
+
+        console.log('📝 Content to check:', { length: contentToCheck.length });
+
+        // Call Winston AI service
+        const winstonResult = await winstonService.checkPlagiarism(contentToCheck);
+        
+        if (!winstonResult.success) {
+          console.log('❌ Winston AI check failed:', winstonResult.error);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Plagiarism verification failed. Please try again.',
+            error: winstonResult.error 
+          });
+        }
+
+        // Extract plagiarism score from Winston AI response
+        const plagiarismScore = winstonResult.data?.plagiarism_score || winstonResult.data?.score || 0;
+        const threshold = 10; // 10% threshold
+        
+        console.log('📊 Winston AI plagiarism score:', plagiarismScore + '%');
+
+        // Reject minting if plagiarism score is too high
+        if (plagiarismScore >= threshold) {
+          console.log('❌ Plagiarism score too high:', plagiarismScore + '% >= ' + threshold + '%');
+          return res.status(400).json({
+            success: false,
+            message: `High plagiarism detected (${plagiarismScore.toFixed(1)}%). Please revise your content before minting.`,
+            score: plagiarismScore,
+            threshold: threshold
+          });
+        }
+
+        console.log('✅ Plagiarism check passed:', plagiarismScore + '% < ' + threshold + '%');
+        
+        // Store plagiarism result for metadata
+        const plagiarismResult = {
+          success: true,
+          score: plagiarismScore,
+          threshold: threshold,
+          passed: true,
+          service: 'Winston AI'
+        };
+
       } catch (error) {
-        console.log('⚠️  Plagiarism check failed, continuing with minting:', error.message);
-        plagiarismResult = { success: false, error: error.message };
+        console.error('❌ Winston AI verification error:', error.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Plagiarism verification service unavailable. Please try again later.',
+          error: error.message
+        });
       }
 
       // Step 3: Create and upload metadata to IPFS
@@ -353,8 +407,9 @@ router.post('/mint', authenticateToken, requireEducator, upload.single('certific
           { trait_type: 'Issued Date', value: new Date().toISOString() },
           { trait_type: 'Expires Date', value: expiresAt || 'Never' },
           { trait_type: 'Type', value: 'Educational Certificate' },
-          { trait_type: 'Originality Score', value: plagiarismResult?.success ? (100 - (plagiarismResult.aiScore * 100)).toFixed(1) + '%' : 'Unknown' },
-          { trait_type: 'Risk Level', value: plagiarismResult?.riskLevel || 'Unknown' }
+          { trait_type: 'Plagiarism Score', value: plagiarismResult?.score ? plagiarismResult.score.toFixed(1) + '%' : 'Unknown' },
+          { trait_type: 'Originality Status', value: plagiarismResult?.passed ? 'Verified Original' : 'Unknown' },
+          { trait_type: 'Verification Service', value: plagiarismResult?.service || 'Unknown' }
         ],
         external_url: `https://educhain.com/certificates/${student._id}`,
         background_color: 'ffffff',
@@ -413,6 +468,7 @@ router.post('/mint', authenticateToken, requireEducator, upload.single('certific
       res.status(201).json({
         success: true,
         message: 'Certificate created and NFT minted successfully!',
+        score: plagiarismResult.score,
         data: {
           id: savedCertificate._id,
           studentId: savedCertificate.studentId,
@@ -427,6 +483,8 @@ router.post('/mint', authenticateToken, requireEducator, upload.single('certific
           expiresAt: savedCertificate.expiresAt,
           createdAt: savedCertificate.createdAt,
           nftTokenId: savedCertificate.nftTokenId,
+          plagiarismScore: plagiarismResult.score,
+          originalityStatus: plagiarismResult.passed ? 'Verified Original' : 'Unknown',
           transactionHash: savedCertificate.transactionHash,
           ipfsUrl: savedCertificate.imageLink,
           metadataUrl: savedCertificate.metadataLink

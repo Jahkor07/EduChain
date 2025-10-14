@@ -320,7 +320,7 @@ Authorization: Bearer <jwt_token>
 #### Contract Address
 ```solidity
 // Deployed on local Hardhat network
-// Address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+// Address: Use REACT_APP_NFT_CONTRACT_ADDRESS environment variable
 ```
 
 #### Key State Variables

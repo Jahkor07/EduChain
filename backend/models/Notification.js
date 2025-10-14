@@ -6,6 +6,12 @@ const notificationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  targetRole: {
+    type: String,
+    enum: ['student', 'educator', 'admin', 'all'],
+    default: 'all',
+    required: true
+  },
   message: {
     type: String,
     required: true,
@@ -42,6 +48,7 @@ const notificationSchema = new mongoose.Schema({
 // Index for efficient queries
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, read: 1 });
+notificationSchema.index({ userId: 1, targetRole: 1 });
 
 // Update readAt when notification is marked as read
 notificationSchema.pre('save', function(next) {

@@ -4,8 +4,14 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "cd backend && npm start",
-    "dev": "cd backend && npm start"
+    "start": "cd server && npm start",
+    "dev": "cd server && npm start",
+    "cleanup": "powershell -ExecutionPolicy Bypass -File cleanup-local.ps1",
+    "cleanup:unix": "bash cleanup-local.sh",
+    "hardhat:node": "npx hardhat node",
+    "hardhat:compile": "npx hardhat compile",
+    "hardhat:deploy": "npx hardhat run scripts/deploy.js --network localhost",
+    "hardhat:test": "npx hardhat test"
   },
   "keywords": [],
   "author": "",
@@ -13,18 +19,21 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.24.0"
+    "hardhat": "^2.24.0",
+    "hardhat-deploy": "^1.0.4"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts": "^4.9.3",
     "@stripe/stripe-js": "^7.9.0",
     "axios": "^1.10.0",
     "cloudinary": "^2.7.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "framer-motion": "^12.23.0",
+    "mammoth": "^1.11.0",
     "mongodb": "^6.18.0",
     "node-fetch": "^3.3.2",
+    "pdf-parse": "^2.2.6",
     "qrcode.react": "^4.2.0",
     "react-intersection-observer": "^9.16.0",
     "react-router-dom": "^7.6.3",

@@ -5,11 +5,11 @@ async function main() {
 
   // Get the contract factory
   const EduChainNFT = await ethers.getContractFactory("EduChainNFT");
-
+  
   // Deploy the contract
   console.log("📝 Deploying contract...");
   const nft = await EduChainNFT.deploy("EduChain Certificates", "EDUCHAIN");
-
+  
   // Wait for deployment to finish
   await nft.deployed();
 

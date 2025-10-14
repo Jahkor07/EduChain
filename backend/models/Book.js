@@ -4,8 +4,8 @@ const bookSchema = new mongoose.Schema({
   // Google Books API data
   googleBooksId: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true // Allows multiple null values
   },
   title: {
     type: String,

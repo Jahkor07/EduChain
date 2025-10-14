@@ -30,6 +30,7 @@ const notificationRoutes = require('./routes/notifications');
 const freeCoursesRoutes = require('./routes/freecourses');
 const nftRoutes = require('./routes/nft');
 const educatorRoutes = require('./routes/educator');
+const plagiarismRoutes = require('./routes/plagiarismRoutes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +40,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api', freeCoursesRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/educator', educatorRoutes);
+app.use('/api/plagiarism', plagiarismRoutes);
 
 // Google Books API route
 app.get("/api/books", async (req, res) => {

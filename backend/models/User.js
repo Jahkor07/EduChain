@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true },
@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
   lastName:  { type: String, required: false },
   email:     { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
-  role:      { type: String, enum: ["student", "educator"], required: true },
+  role:      { type: String, enum: ["student", "educator", "admin"], required: true },
   profilePhoto: { type: String, default: "" },
   gender: { type: String, enum: ["male", "female"], required: false },
   dateOfBirth: { type: Date, required: false },
@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
   phoneOTP: { type: String, required: false },
   phoneOTPExpiry: { type: Date, required: false },
   phoneVerified: { type: Boolean, default: false },
+  verified: { type: Boolean, default: false },
+  verifiedAt: { type: Date, required: false },
+  rejectedAt: { type: Date, required: false },
+  rejectionReason: { type: String, required: false },
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
