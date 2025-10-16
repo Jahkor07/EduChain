@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
 const Book = require('../models/Book');
+const User = require('../models/User');
+const Certificate = require('../models/Certificate');
 const { auth } = require('../middleware/auth');
 const { requireEducator } = require('../middleware/roleCheck');
 
@@ -323,6 +325,161 @@ router.delete('/books/:bookId', auth, requireEducator, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete book',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Dashboard stats endpoint
+router.get('/dashboard/stats', auth, requireEducator, async (req, res) => {
+  try {
+    const educatorId = req.user.id;
+    
+    // Get total students (users with role 'student')
+    const totalStudents = await User.countDocuments({ role: 'student' });
+    
+    // Get books uploaded by this educator
+    const booksUploaded = await Book.countDocuments({ educatorId });
+    
+    // Get certificates minted by this educator
+    const certificatesMinted = await Certificate.countDocuments({ educatorId });
+    
+    // Get active educators count
+    const activeEducators = await User.countDocuments({ role: 'educator' });
+    
+    // Get recent activity (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentBooks = await Book.countDocuments({ 
+      educatorId, 
+      createdAt: { $gte: thirtyDaysAgo } 
+    });
+    
+    const recentCertificates = await Certificate.countDocuments({ 
+      educatorId, 
+      issuedAt: { $gte: thirtyDaysAgo } 
+    });
+    
+    // Get educator's books with quantity info
+    const educatorBooks = await Book.find({ educatorId }).select('title quantity educatorPrice');
+    
+    // Calculate total revenue (mock calculation based on books sold)
+    const totalRevenue = educatorBooks.reduce((sum, book) => {
+      const sold = (book.quantity || 10) - (book.currentQuantity || 0);
+      return sum + (sold * (book.educatorPrice || 0));
+    }, 0);
+    
+    const stats = {
+      totalStudents,
+      booksUploaded,
+      certificatesMinted,
+      activeEducators,
+      recentActivity: {
+        booksAdded: recentBooks,
+        certificatesIssued: recentCertificates
+      },
+      revenue: {
+        total: totalRevenue,
+        currency: 'ZMW'
+      },
+      lastUpdated: new Date().toISOString()
+    };
+    
+    console.log(`Dashboard stats fetched for educator ${educatorId}:`, stats);
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+    
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch dashboard statistics',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Educator transactions endpoint
+router.get('/transactions', auth, requireEducator, async (req, res) => {
+  try {
+    const educatorId = req.user.id;
+    
+    // In a real implementation, you would fetch from a transactions collection
+    // For now, we'll return mock data based on the educator's books
+    const educatorBooks = await Book.find({ educatorId }).select('title educatorPrice');
+    
+    // Mock transaction data based on books
+    const mockTransactions = educatorBooks.map((book, index) => ({
+      id: `tx-edu-${educatorId}-${index + 1}`,
+      type: 'book_sale',
+      studentEmail: `student${index + 1}@example.com`,
+      bookTitle: book.title,
+      amount: book.educatorPrice || 10,
+      currency: 'ZMW',
+      paymentMethod: index % 2 === 0 ? 'MetaMask' : 'Stripe',
+      status: index % 3 === 0 ? 'pending' : 'completed',
+      transactionHash: index % 3 === 0 ? null : `0x${Math.random().toString(16).substr(2, 8)}`,
+      timestamp: new Date(Date.now() - (index * 86400000)).toISOString(),
+      educatorWallet: '0x' + Math.random().toString(16).substr(2, 8)
+    }));
+    
+    res.json({
+      success: true,
+      data: mockTransactions
+    });
+    
+  } catch (error) {
+    console.error('Error fetching educator transactions:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch educator transactions',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Educator revenue endpoint
+router.get('/revenue', auth, requireEducator, async (req, res) => {
+  try {
+    const educatorId = req.user.id;
+    
+    // Get educator's books
+    const educatorBooks = await Book.find({ educatorId }).select('title educatorPrice quantity');
+    
+    // Calculate total revenue (mock calculation)
+    const totalRevenue = educatorBooks.reduce((sum, book) => {
+      const sold = Math.floor((book.quantity || 10) * 0.7); // Assume 70% sold
+      return sum + (sold * (book.educatorPrice || 10));
+    }, 0);
+    
+    // Calculate pending payments (mock calculation)
+    const pendingPayments = educatorBooks.reduce((sum, book) => {
+      const pending = Math.floor((book.quantity || 10) * 0.1); // Assume 10% pending
+      return sum + (pending * (book.educatorPrice || 10));
+    }, 0);
+    
+    res.json({
+      success: true,
+      data: {
+        totalRevenue,
+        pendingPayments,
+        currency: 'ZMW',
+        lastUpdated: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching educator revenue:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch educator revenue',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

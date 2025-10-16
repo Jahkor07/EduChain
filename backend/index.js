@@ -116,7 +116,34 @@ function getMockBooks(query) {
           amount: 59.99,
           currencyCode: "USD"
         }
-      }
+      },
+      quantity: 5,
+      chapters: [
+        {
+          number: 1,
+          title: "Introduction to JavaScript",
+          fileUrl: "https://example.com/chapter1.txt",
+          fileType: "txt",
+          pageCount: 50,
+          wordCount: 15000
+        },
+        {
+          number: 2,
+          title: "Variables and Data Types",
+          fileUrl: "https://example.com/chapter2.txt",
+          fileType: "txt",
+          pageCount: 45,
+          wordCount: 13500
+        },
+        {
+          number: 3,
+          title: "Functions and Scope",
+          fileUrl: "https://example.com/chapter3.txt",
+          fileType: "txt",
+          pageCount: 60,
+          wordCount: 18000
+        }
+      ]
     },
     {
       id: "mock-book-2",
@@ -139,7 +166,42 @@ function getMockBooks(query) {
           amount: 39.99,
           currencyCode: "USD"
         }
-      }
+      },
+      quantity: 3,
+      chapters: [
+        {
+          number: 1,
+          title: "Getting Started with React",
+          fileUrl: "https://example.com/react-chapter1.txt",
+          fileType: "txt",
+          pageCount: 40,
+          wordCount: 12000
+        },
+        {
+          number: 2,
+          title: "Components and Props",
+          fileUrl: "https://example.com/react-chapter2.txt",
+          fileType: "txt",
+          pageCount: 55,
+          wordCount: 16500
+        },
+        {
+          number: 3,
+          title: "State and Lifecycle",
+          fileUrl: "https://example.com/react-chapter3.txt",
+          fileType: "txt",
+          pageCount: 50,
+          wordCount: 15000
+        },
+        {
+          number: 4,
+          title: "Hooks and Modern React",
+          fileUrl: "https://example.com/react-chapter4.txt",
+          fileType: "txt",
+          pageCount: 65,
+          wordCount: 19500
+        }
+      ]
     },
     {
       id: "mock-book-3",
@@ -162,7 +224,34 @@ function getMockBooks(query) {
           amount: 49.99,
           currencyCode: "USD"
         }
-      }
+      },
+      quantity: 2,
+      chapters: [
+        {
+          number: 1,
+          title: "Introduction to Node.js",
+          fileUrl: "https://example.com/node-chapter1.txt",
+          fileType: "txt",
+          pageCount: 60,
+          wordCount: 18000
+        },
+        {
+          number: 2,
+          title: "Asynchronous Programming",
+          fileUrl: "https://example.com/node-chapter2.txt",
+          fileType: "txt",
+          pageCount: 70,
+          wordCount: 21000
+        },
+        {
+          number: 3,
+          title: "Design Patterns in Node.js",
+          fileUrl: "https://example.com/node-chapter3.txt",
+          fileType: "txt",
+          pageCount: 80,
+          wordCount: 24000
+        }
+      ]
     },
     {
       id: "mock-book-4",
@@ -185,7 +274,42 @@ function getMockBooks(query) {
           amount: 34.99,
           currencyCode: "USD"
         }
-      }
+      },
+      quantity: 0,
+      chapters: [
+        {
+          number: 1,
+          title: "Python Basics",
+          fileUrl: "https://example.com/python-chapter1.txt",
+          fileType: "txt",
+          pageCount: 50,
+          wordCount: 15000
+        },
+        {
+          number: 2,
+          title: "Lists and Dictionaries",
+          fileUrl: "https://example.com/python-chapter2.txt",
+          fileType: "txt",
+          pageCount: 45,
+          wordCount: 13500
+        },
+        {
+          number: 3,
+          title: "Functions and Classes",
+          fileUrl: "https://example.com/python-chapter3.txt",
+          fileType: "txt",
+          pageCount: 55,
+          wordCount: 16500
+        },
+        {
+          number: 4,
+          title: "File Handling and Modules",
+          fileUrl: "https://example.com/python-chapter4.txt",
+          fileType: "txt",
+          pageCount: 40,
+          wordCount: 12000
+        }
+      ]
     },
     {
       id: "mock-book-5",
@@ -208,7 +332,50 @@ function getMockBooks(query) {
           amount: 44.99,
           currencyCode: "USD"
         }
-      }
+      },
+      quantity: 1,
+      chapters: [
+        {
+          number: 1,
+          title: "Clean Code Principles",
+          fileUrl: "https://example.com/clean-chapter1.txt",
+          fileType: "txt",
+          pageCount: 60,
+          wordCount: 18000
+        },
+        {
+          number: 2,
+          title: "Meaningful Names",
+          fileUrl: "https://example.com/clean-chapter2.txt",
+          fileType: "txt",
+          pageCount: 40,
+          wordCount: 12000
+        },
+        {
+          number: 3,
+          title: "Functions",
+          fileUrl: "https://example.com/clean-chapter3.txt",
+          fileType: "txt",
+          pageCount: 50,
+          wordCount: 15000
+        },
+        {
+          number: 4,
+          title: "Comments and Formatting",
+          fileUrl: "https://example.com/clean-chapter4.txt",
+          fileType: "txt",
+          pageCount: 45,
+          wordCount: 13500
+        },
+        {
+          number: 5,
+          title: "Error Handling",
+          fileUrl: "https://example.com/clean-chapter5.txt",
+          fileType: "txt",
+          pageCount: 55,
+          wordCount: 16500
+        }
+      ]
     }
   ];
   

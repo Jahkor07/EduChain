@@ -200,5 +200,179 @@ class WinstonService {
 // Create and export service instance
 const winstonService = new WinstonService();
 
+/**
+ * Enhanced chunked plagiarism check for long texts
+ * @param {string} content - The content to check
+ * @param {Object} options - Configuration options
+ * @returns {Promise<Object>} - Chunked plagiarism check results
+ */
+async function checkPlagiarismChunked(content, options = {}) {
+  const {
+    maxChunkLength = 2000,
+    overlapSize = 100,
+    retryAttempts = 2
+  } = options;
+
+  if (!content || typeof content !== 'string') {
+    throw new Error('Content must be a non-empty string');
+  }
+
+  if (content.trim().length < 50) {
+    throw new Error('Content must be at least 50 characters long');
+  }
+
+  // If content is short enough, use direct check
+  if (content.length <= maxChunkLength) {
+    return await winstonService.checkPlagiarism(content);
+  }
+
+  console.log(`🔍 Processing ${content.length} characters in chunks of ${maxChunkLength}...`);
+
+  // Create overlapping chunks
+  const chunks = createOverlappingChunks(content, maxChunkLength, overlapSize);
+  const results = [];
+  let totalSimilarity = 0;
+  let validChunks = 0;
+  let failedChunks = 0;
+
+  // Process each chunk
+  for (const [index, chunk] of chunks.entries()) {
+    let chunkResult = null;
+    let attempts = 0;
+
+    // Retry logic for failed chunks
+    while (attempts < retryAttempts && !chunkResult) {
+      try {
+        console.log(`📄 Processing chunk ${index + 1}/${chunks.length} (attempt ${attempts + 1})...`);
+        
+        chunkResult = await winstonService.checkPlagiarism(chunk);
+        
+        if (chunkResult.success) {
+          const similarity = chunkResult.data?.plagiarism_score || 0;
+          console.log(`✅ Chunk ${index + 1}: Similarity ${similarity}%`);
+          
+          totalSimilarity += similarity;
+          validChunks++;
+          results.push({
+            chunkIndex: index + 1,
+            ...chunkResult,
+            chunkLength: chunk.length
+          });
+        } else {
+          throw new Error(chunkResult.message || 'Chunk processing failed');
+        }
+      } catch (error) {
+        attempts++;
+        console.error(`❌ Error in chunk ${index + 1} (attempt ${attempts}):`, error.message);
+        
+        if (attempts >= retryAttempts) {
+          failedChunks++;
+          results.push({
+            chunkIndex: index + 1,
+            success: false,
+            error: error.message,
+            chunkLength: chunk.length
+          });
+        } else {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
+      }
+    }
+  }
+
+  // Calculate overall statistics
+  const overallSimilarity = validChunks > 0 ? 
+    parseFloat((totalSimilarity / validChunks).toFixed(2)) : 0;
+
+  const successRate = chunks.length > 0 ? 
+    parseFloat(((validChunks / chunks.length) * 100).toFixed(2)) : 0;
+
+  console.log(`📊 Overall plagiarism score: ${overallSimilarity}% based on ${validChunks}/${chunks.length} chunks (${successRate}% success rate)`);
+
+  // Determine overall result
+  const isPlagiarized = overallSimilarity > 30;
+  const confidence = successRate >= 80 ? 'high' : successRate >= 50 ? 'medium' : 'low';
+
+  return {
+    overallSimilarity,
+    isPlagiarized,
+    confidence,
+    statistics: {
+      totalChunks: chunks.length,
+      validChunks,
+      failedChunks,
+      successRate,
+      totalCharacters: content.length,
+      averageChunkSize: Math.round(content.length / chunks.length)
+    },
+    results,
+    recommendations: generateRecommendations(overallSimilarity, confidence, failedChunks)
+  };
+}
+
+/**
+ * Create overlapping chunks from text
+ * @param {string} text - Input text
+ * @param {number} maxLength - Maximum chunk length
+ * @param {number} overlap - Overlap size between chunks
+ * @returns {Array<string>} - Array of text chunks
+ */
+function createOverlappingChunks(text, maxLength, overlap) {
+  const chunks = [];
+  let start = 0;
+
+  while (start < text.length) {
+    let end = start + maxLength;
+    
+    // If this isn't the last chunk, try to break at a word boundary
+    if (end < text.length) {
+      const lastSpace = text.lastIndexOf(' ', end);
+      if (lastSpace > start + maxLength * 0.8) {
+        end = lastSpace;
+      }
+    }
+
+    chunks.push(text.slice(start, end));
+    start = end - overlap;
+  }
+
+  return chunks;
+}
+
+/**
+ * Generate recommendations based on plagiarism check results
+ * @param {number} similarity - Overall similarity score
+ * @param {string} confidence - Confidence level
+ * @param {number} failedChunks - Number of failed chunks
+ * @returns {Array<string>} - Array of recommendations
+ */
+function generateRecommendations(similarity, confidence, failedChunks) {
+  const recommendations = [];
+
+  if (similarity > 50) {
+    recommendations.push("⚠️ High similarity detected. Consider rewriting significant portions of the text.");
+  } else if (similarity > 30) {
+    recommendations.push("⚠️ Moderate similarity detected. Review and cite sources appropriately.");
+  } else if (similarity > 10) {
+    recommendations.push("✅ Low similarity detected. Consider adding proper citations for any referenced content.");
+  } else {
+    recommendations.push("✅ Very low similarity detected. Text appears to be original.");
+  }
+
+  if (confidence === 'low') {
+    recommendations.push("⚠️ Low confidence in results due to processing errors. Consider re-running the check.");
+  }
+
+  if (failedChunks > 0) {
+    recommendations.push(`⚠️ ${failedChunks} chunks failed to process. Results may be incomplete.`);
+  }
+
+  return recommendations;
+}
+
+// Add chunked method to the service instance
+winstonService.checkPlagiarismChunked = checkPlagiarismChunked;
+
 module.exports = winstonService;
 

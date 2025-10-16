@@ -4,8 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "cd server && npm start",
-    "dev": "cd server && npm start",
+    "start": "cd backend && npm start",
+    "dev": "cd backend && npm start",
     "cleanup": "powershell -ExecutionPolicy Bypass -File cleanup-local.ps1",
     "cleanup:unix": "bash cleanup-local.sh",
     "hardhat:node": "npx hardhat node",

@@ -73,9 +73,55 @@ const bookSchema = new mongoose.Schema({
     type: String,
     default: 'USD'
   },
+  quantity: {
+    type: Number,
+    required: true,
+    default: 1,
+    min: 0
+  },
   isActive: {
     type: Boolean,
     default: true
+  },
+  
+  // Book content structure
+  chapters: [{
+    number: {
+      type: Number,
+      required: true
+    },
+    title: {
+      type: String,
+      required: true
+    },
+    fileUrl: {
+      type: String,
+      required: true
+    },
+    fileType: {
+      type: String,
+      enum: ['pdf', 'txt', 'html', 'md'],
+      default: 'txt'
+    },
+    pageCount: {
+      type: Number,
+      default: 0
+    },
+    wordCount: {
+      type: Number,
+      default: 0
+    }
+  }],
+  
+  // Legacy single file support
+  fileUrl: {
+    type: String,
+    default: ''
+  },
+  fileType: {
+    type: String,
+    enum: ['pdf', 'txt', 'html', 'md'],
+    default: 'txt'
   },
   
   // Metadata

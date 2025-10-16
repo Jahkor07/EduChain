@@ -309,5 +309,48 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Enhanced chunked plagiarism check for long texts
+router.post('/check-chunked', async (req, res) => {
+  try {
+    const { content, options = {} } = req.body;
+    
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Content is required and must be a string'
+      });
+    }
+
+    if (content.trim().length < 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Content must be at least 50 characters long'
+      });
+    }
+
+    console.log('🔍 Starting chunked plagiarism check...', {
+      contentLength: content.length,
+      options
+    });
+
+    // Use the enhanced chunked plagiarism check
+    const result = await winstonService.checkPlagiarismChunked(content, options);
+    
+    res.json({
+      success: true,
+      message: 'Chunked plagiarism check completed',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ Chunked plagiarism check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to perform chunked plagiarism check',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 
